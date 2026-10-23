@@ -1,6 +1,7 @@
 package gui
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
@@ -356,7 +357,7 @@ func pluginPageRoutes(mux *http.ServeMux) {
 			_ = json.NewEncoder(rw).Encode(map[string]string{"error": fmt.Sprintf("%s's package doesn't ask to read %q", name, in.Read)})
 			return
 		}
-		v, err := pageRead(in.Read, in.Params)
+		v, err := pageRead(r.Context(), in.Read, in.Params)
 		if err != nil {
 			fail(rw, err)
 			return
@@ -427,7 +428,7 @@ func pageSetAllowed(spec string, now time.Time) bool {
 }
 
 // pageRead is one of plugin.PageReads.
-func pageRead(read string, params map[string]any) (any, error) {
+func pageRead(ctx context.Context, read string, params map[string]any) (any, error) {
 	switch read {
 	case "providers:list":
 		// a name and an id each: no key, no account, no address
@@ -478,6 +479,57 @@ func pageRead(read string, params map[string]any) (any, error) {
 				m = g.ID
 			}
 			out.Models = append(out.Models, model{Model: m, Calls: g.Calls, Input: g.Input, Output: g.Output, Cost: g.Cost})
+		}
+		return out, nil
+	case "credits:list":
+		// 每个 provider 的每个账号，问它自己的额度：balance 与 windows 是
+		// auth.usage 报的，插件页拿不到这个通道，只能由宿主代问。
+		// 只要 params.provider 给了就只问那一家，否则问 provider.All()。
+		// 不发 key、不发 token，只发额度读数。
+		type win struct {
+			Name string  `json:"name"`
+			Used float64 `json:"used"`
+		}
+		type acct struct {
+			Account string  `json:"account"`
+			Balance string  `json:"balance"`
+			Plan    string  `json:"plan"`
+			Until   string  `json:"until"`
+			SignIn  string  `json:"signIn"`
+			Error   string  `json:"error"`
+			Windows []win   `json:"windows"`
+		}
+		type prov struct {
+			ID      string `json:"id"`
+			Name    string `json:"name"`
+			Error   string `json:"error"`
+			Account []acct `json:"accounts"`
+		}
+		want, _ := params["provider"].(string)
+		out := []prov{}
+		for _, p := range provider.All() {
+			if want != "" && p.ID != want {
+				continue
+			}
+			row := prov{ID: p.ID, Name: p.Name, Account: []acct{}}
+			auths := plugin.Auths(p.ID)
+			if len(auths) == 0 {
+				continue
+			}
+			for key := range auths {
+				a := acct{Account: key, Windows: []win{}}
+				u, err := plugin.AccountUsage(ctx, p.ID, key)
+				if err != nil {
+					a.Error = err.Error()
+				} else {
+					a.Balance, a.Plan, a.Until, a.SignIn, a.Error = u.Balance, u.Plan, u.Until, u.SignIn, u.Error
+					for _, w := range u.Windows {
+						a.Windows = append(a.Windows, win{Name: w.Name, Used: w.Used})
+					}
+				}
+				row.Account = append(row.Account, a)
+			}
+			out = append(out, row)
 		}
 		return out, nil
 	}

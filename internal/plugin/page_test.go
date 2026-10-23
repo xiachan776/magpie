@@ -231,3 +231,16 @@ func TestWindowActions(t *testing.T) {
 		t.Errorf("12 actions: %+v, want %d", w, maxActions)
 	}
 }
+
+// credits:list 是给插件页读额度的读法：它在白名单里，但没有别的东西能顺带进来。
+func TestCreditsReadIsListed(t *testing.T) {
+	if !slices.Contains(PageReads, "credits:list") {
+		t.Fatalf("PageReads = %v, want credits:list", PageReads)
+	}
+	// 原先两样不能因为加了这一样就消失
+	for _, r := range []string{"usage:summary", "providers:list"} {
+		if !slices.Contains(PageReads, r) {
+			t.Errorf("lost %q", r)
+		}
+	}
+}

@@ -74,7 +74,13 @@ const maxActions = 8
 
 // PageReads are the reads a plugin's page can be granted, each in
 // magpie.permissions. None of them carries a secret.
-var PageReads = []string{"usage:summary", "providers:list"}
+//
+// credits:list is the one that asks the vendors: for each of a provider's
+// accounts it runs the plugin's own auth.usage and reports the balance and
+// windows that come back. A page cannot reach auth.usage itself — only the
+// host holds the plugin channel — so a plugin that shows credits needs this
+// read instead of a made-up number.
+var PageReads = []string{"usage:summary", "providers:list", "credits:list"}
 
 // PanelSlots are the places in magpie's own pages a plugin's panel can
 // go: under the Agents page's list, at the end of the Usage page, on
