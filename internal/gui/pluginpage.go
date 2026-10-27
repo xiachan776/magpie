@@ -486,9 +486,20 @@ func pageRead(ctx context.Context, read string, params map[string]any) (any, err
 		// auth.usage 报的，插件页拿不到这个通道，只能由宿主代问。
 		// 只要 params.provider 给了就只问那一家，否则问 provider.All()。
 		// 不发 key、不发 token，只发额度读数。
+		//
+		// windows 必须**透传全字段**：插件页（page/data.js normalizeCreditsLive）
+		// 从 amount/limit/used(已用百分比)/unit 统一折算「剩余 / 总量 积分 · 剩余 X%」；
+		// 这里若只留 Name+Used，等于把已用量/总量/单位扔在宿主侧，页面只能照抄
+		// balance 原串 —— 同一页面会同时出现「380 / 380 积分」「350 / 350 credits」
+		// 「剩余 100%」三种口径（2026-10-27 统一格式修复，别再把字段吞掉）。
 		type win struct {
-			Name string  `json:"name"`
-			Used float64 `json:"used"`
+			Name      string  `json:"name"`
+			Used      float64 `json:"used"`
+			Amount    float64 `json:"amount"`
+			Limit     float64 `json:"limit"`
+			Unit      string  `json:"unit"`
+			ResetsAt  string  `json:"resetsAt,omitempty"`
+			RunsOutAt string  `json:"runsOutAt,omitempty"`
 		}
 		type acct struct {
 			Account string  `json:"account"`
@@ -524,7 +535,11 @@ func pageRead(ctx context.Context, read string, params map[string]any) (any, err
 				} else {
 					a.Balance, a.Plan, a.Until, a.SignIn, a.Error = u.Balance, u.Plan, u.Until, u.SignIn, u.Error
 					for _, w := range u.Windows {
-						a.Windows = append(a.Windows, win{Name: w.Name, Used: w.Used})
+						a.Windows = append(a.Windows, win{
+							Name: w.Name, Used: w.Used,
+							Amount: w.Amount, Limit: w.Limit, Unit: w.Unit,
+							ResetsAt: w.ResetsAt, RunsOutAt: w.RunsOutAt,
+						})
 					}
 				}
 				row.Account = append(row.Account, a)
