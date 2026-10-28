@@ -1,5 +1,27 @@
 # Notes for coding agents
 
+## 强制规定：我们做的是插件，不是启动器（HARD RULE，优先于本文件其余全部内容）
+
+**这个检出是 magpie 的源码副本，不是交付物。交付物只有插件。**
+
+`exe` 是启动器，属于用户机器上的成品，**不属于本仓库的修改范围**。绝对禁止，无例外，不接受"临时验证"、"就改一行"、"先在本机跑通"、"只是换个图标"这类理由：
+
+- 修改、编译、重新打包、替换、覆盖任何 `magpie*.exe`（`magpie.exe`、`magpie-patched.exe`、`magpie-windows-amd64.new.exe` 等）；
+- 补丁宿主二进制：hex patch、asar 解包重打、资源/图标替换、签名伪造、DLL 侧挂；
+- 往 magpie 的安装目录写文件、改注册表、改快捷方式或文件关联来完成"功能"；
+- 把补丁版 exe 当交付物。用户要的是插件，补丁版是错误答案，不是折中方案。
+
+**功能写在哪里：**
+
+- 首选本机插件仓 `D:\AI-OS\02_Projects\插件\magpie-veyra-plugins`（provider / auth / usage / checkin / tool / page 都在这里）；
+- `plugins/` 下的内置插件仅当用户当次明确要求时才动。
+
+**宿主缺能力时**（例如插件页被 `connect-src 'none'` 钉死、缺一条读法）：说明缺口，给出插件侧能实现的绕法，必要时向上游提 PR —— 不改本机 exe。
+
+**判据：一次交付里出现任何 `.exe` 产物，就是做错了。** 根目录曾躺着 `magpie-patched.exe` 和 `magpie-windows-amd64.new.exe` 两个补丁版；2026-10-28 复核时两者已不在盘上，`*.exe` 也已进 `.gitignore`，同类产物再出现即视为违规。
+
+**和 `docs/code-standards.md` 的冲突怎么解：** 那份文档里的验收步骤（`go build`、`GOOS=windows go build`、`go test`）是 magpie 自己向上游提 PR 时的规矩，**不是本项目的规矩**。在这里跑 `go build` 就会在仓库根落一个 `magpie.exe`，正好违反上面第 9 行。所以：本检出**不承担 magpie 的构建与验收**，需要读源码就读源码，不需要把它编译出来；真要给上游提改动，那是用户单独决定的事，不在本文件授权范围内。
+
 ## Subsystem design and review
 
 Before changing a documented subsystem, read its

@@ -6,3 +6,16 @@
 /rsrc_windows_*.syso
 /magpie-dev-backend
 /magpie-dev.new
+
+# 交付物只有插件：启动器二进制永不入库（见 AGENTS.md「强制规定」）。
+# 根目录历史遗留的 magpie-patched.exe / magpie-windows-amd64.new.exe 由此挡掉。
+*.exe
+
+# 网盘同步写文件时会临时落一个 .baiduyun.* 标记。它不是项目产物。
+*.baiduyun.*
+
+# 插件运行期状态（magpie-veyra-plugins 的 actions.mjs / balance.mjs 写在
+# cwd 里的两份记账）。它们是宿主配置目录里的东西，不是本仓库的源码；
+# 会出现在这里只因为某次插件进程的 cwd 指到了仓库根。永不入库。
+/veyra-actions.json
+/veyra-live-balance.json
