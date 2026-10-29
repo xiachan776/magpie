@@ -14,8 +14,10 @@
 # 网盘同步写文件时会临时落一个 .baiduyun.* 标记。它不是项目产物。
 *.baiduyun.*
 
-# 插件运行期状态（magpie-veyra-plugins 的 actions.mjs / balance.mjs 写在
-# cwd 里的两份记账）。它们是宿主配置目录里的东西，不是本仓库的源码；
-# 会出现在这里只因为某次插件进程的 cwd 指到了仓库根。永不入库。
-/veyra-actions.json
-/veyra-live-balance.json
+# 插件运行期状态（magpie-veyra-plugins 写在 cwd 里的记账/哨兵：
+# actions.mjs → veyra-actions.json、balance.mjs → veyra-live-balance.json、
+# watchdog.mjs → veyra-watchdog.json）。它们是宿主配置目录里的东西，不是
+# 本仓库的源码；会出现在这里只因为某次插件进程的 cwd 指到了仓库根。
+# 永不入库 —— 里面是账号、额度、时间戳，属敏感数据。
+# 用通配而不是逐个点名：插件以后再加一份 veyra-*.json 状态，同一条挡掉。
+/veyra-*.json

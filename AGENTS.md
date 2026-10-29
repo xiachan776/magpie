@@ -20,7 +20,13 @@
 
 **判据：一次交付里出现任何 `.exe` 产物，就是做错了。** 根目录曾躺着 `magpie-patched.exe` 和 `magpie-windows-amd64.new.exe` 两个补丁版；2026-10-28 复核时两者已不在盘上，`*.exe` 也已进 `.gitignore`，同类产物再出现即视为违规。
 
-**和 `docs/code-standards.md` 的冲突怎么解：** 那份文档里的验收步骤（`go build`、`GOOS=windows go build`、`go test`）是 magpie 自己向上游提 PR 时的规矩，**不是本项目的规矩**。在这里跑 `go build` 就会在仓库根落一个 `magpie.exe`，正好违反上面第 9 行。所以：本检出**不承担 magpie 的构建与验收**，需要读源码就读源码，不需要把它编译出来；真要给上游提改动，那是用户单独决定的事，不在本文件授权范围内。
+**和 `docs/code-standards.md` 的冲突怎么解：** 那份文档第 55–59 行要求交付前跑 `gofmt -l`、`go vet ./...`、`GOOS=linux go vet -tags nogui ./...`、`GOOS=windows go vet ./...`、`go build`、`GOOS=linux go build -tags nogui`、`GOOS=windows go build`、`go test -tags nogui ./...`。那是 magpie 自己向上游提 PR 时的规矩，**不是本项目的规矩**。
+
+要分清哪几条会落产物：`gofmt -l`、`go vet`、`go test` 只读不产二进制；**`go build` 与 `GOOS=windows go build` 会在仓库根落一个 `magpie.exe`**，正好违反上面第 9 行。所以本项目的口径是：
+
+- 只读检查（`gofmt -l`、`go vet`、`go test`）照跑无妨；
+- **产出二进制的构建一律不跑**（含 `go build`、`GOOS=* go build`、`go build -o`、`go install`）；
+- 需要读宿主行为就读源码；真要给上游提改动，那是用户单独决定的事，不在本文件授权范围内。
 
 ## 强制规定二：浏览器标签页用完即关（HARD RULE，与上一条同级）
 
