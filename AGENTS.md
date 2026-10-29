@@ -61,6 +61,28 @@
 
 **理由：** 返工和乱翻文件的成本远高于开工前几分钟的自检；任务卡不是格式，是执行者唯一的导航。
 
+## 强制规定四：任务完成自动重启 magpie（HARD RULE，与上三条同级）
+
+**每次任务完成之后，自动重启 magpie，让本地插件改动立即生效；目标 10 秒内拉起。**
+
+本机已实测事实（2026-10-30）：
+
+- 主进程：`magpie-windows-amd64.exe`，exe 在 `D:\AI-OS\08_Important\`，无启动参数，窗口标题 `magpie`，网关端口 3425 由主进程监听；由 explorer 正常拉起，**无守护进程**（杀掉后 2 秒内不会自动复活，需手动拉起）；
+- 插件主机 `magpie-bun.exe`（bun 1.4.4，跑 `C:\Users\Administrator\.cache\magpie\plugin-host\host-*.js`）是其子进程，随父进程退出、随重启重建；
+- 本地路径插件不参与更新机（`internal/plugin/updates.go` 跳过 IsPath），改完插件**只有重启 magpie 才生效** —— 这是本条存在的理由。
+
+**标准流程（2026-10-30 实测全流程 5.1s）：**
+
+1. `Get-CimInstance Win32_Process` 记下当前主进程 PID 与 `ExecutablePath`；
+2. `Stop-Process -Force` 结束主进程（WebView2 与 bun 插件主机随之退出）；
+3. 等 2 秒确认无自动拉起，然后 `Start-Process -FilePath <exe>` 原路径重启；
+4. 就绪判据：新主进程出现**且端口 3425 重新 Listen**；
+5. 向用户报告实际耗时。
+
+**例外：** ① 用户当次明确说「先别重启」；② 纯对话 / 纯查阅、未动任何文件也未跑任何命令的回合可不重启；③ magpie 本来就没在跑时，不主动拉起，只报告。
+
+**判据：** 动过文件的任务收尾报告里没有重启记录与耗时，就是做错了。
+
 ## Subsystem design and review
 
 Before changing a documented subsystem, read its
