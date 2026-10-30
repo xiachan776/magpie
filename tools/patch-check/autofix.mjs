@@ -5,11 +5,13 @@
  *
  * 边界（重要）:
  *  - 只做「字符串级、语义确定、可回滚」的替换：zcode 的 APP_VERSION 与 UA 剥尾、
- *    qoder 的 COSY_VERSION。结构性修复（workbuddy 的 SITES/detectInstalledBuild、
+ *    qoder 的 COSY_VERSION。结构性修复（workbuddy 的 SITES 字段完整性、
  *    qoder 补 Cosy-MachineCode、raccoon 磁盘读版本）不在自动范围内——上游一旦重构，
  *    盲改会造出「缝合怪」，宁可停下报人工。
  *  - 绝不自动安装上游新版本（新代码进生产风险太高）。发现上游版本变了只报告。
- *  - 每个文件改动前先备份 .bak-autofix-<ts>，改完用 check.mjs 复验；只要复验变差就整份回滚。
+ *  - 每个文件改动前先备份 .bak-autofix-<ts>，改完用 check.mjs --provider=<本家> 复验
+ *    （别家的红不连坐本家——2026-10-30 zcode 0.1.38 那晚就是被 workbuddy 的红拖到回滚的）；
+ *    复验不过就整份回滚。
  *
  * 用法: node tools/patch-check/autofix.mjs [--dry-run]
  * 退出码: 0 = 无需修 或 修好且复验通过；1 = 修了但复验仍失败（已回滚）；2 = 有需人工的结构性缺口。
@@ -45,7 +47,7 @@ const SAFE_EDITS = [
 
 /** 只能人工的结构性缺口（发现就点名，不盲改）。 */
 const MANUAL = [
-  { provider: "workbuddy", pkg: "@magpie-community/opencode-workbuddy-auth", what: "workbuddy-ai SITES 需 app 5.8.4/cli 2.161.0/runtime \"\" + detectInstalledBuild()" },
+  { provider: "workbuddy", pkg: "@magpie-community/opencode-workbuddy-auth", what: "workbuddy-ai SITES 须自带 app/cli/runtime（上游 0.2.3 起 intl=5.9.3 同构建）" },
   { provider: "qoder", pkg: "@magpie-community/opencode-qoder-auth", what: "chatHeaders 需保证发 Cosy-MachineCode 且 Cosy-ClientType 为 \"5\"" },
   { provider: "raccoon", pkg: "@magpie-community/opencode-raccoon-auth", what: "desktopHeaders 的 X-Client-Version 需磁盘读（raccoonDesktopVersion），不得硬编码 v1.0.0" },
 ]
@@ -85,8 +87,8 @@ for (const c of SAFE_EDITS) {
   fs.writeFileSync(file, text, "utf8")
   console.log(`· ${c.provider}: 已应用 ${applied.join(" + ")}（备份 ${path.basename(bak)}）`)
 
-  // 复验：check.mjs 退出码 0 才算成功
-  const chk = spawnSync(process.execPath, [path.join(HERE, "check.mjs")], { encoding: "utf8" })
+  // 复验：只看本 provider 的规则（check.mjs --provider），别家的红不连坐本家
+  const chk = spawnSync(process.execPath, [path.join(HERE, "check.mjs"), `--provider=${c.provider}`], { encoding: "utf8" })
   if (chk.status !== 0) {
     fs.copyFileSync(bak, file)
     console.log(`  ✗ 复验未通过，已回滚 ${c.provider}`)
@@ -102,7 +104,11 @@ for (const m of MANUAL) {
   const t = fs.readFileSync(file, "utf8")
   const ok =
     m.provider === "workbuddy"
-      ? /detectInstalledBuild/.test(t) && /5\.8\.4/.test(t) && /runtime:\s*""/.test(t)
+      ? (() => {
+          const i = t.indexOf('"workbuddy-ai"')
+          const seg = i < 0 ? "" : t.slice(i, i + 700)
+          return /app:\s*"\d+\.\d+\.\d+"/.test(seg) && /cli:\s*"/.test(seg) && /runtime:\s*"/.test(seg)
+        })()
       : m.provider === "raccoon"
         ? /raccoonDesktopVersion/.test(t)
         : /Cosy-MachineCode/.test(t)

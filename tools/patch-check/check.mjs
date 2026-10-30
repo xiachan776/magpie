@@ -24,6 +24,12 @@ const ROOT =
   process.env.MAGPIE_PLUGINS_DIR ||
   join(homedir(), ".config", "magpie", "plugins", "node_modules")
 
+// --provider=zcode（可多次）：只检查指定 provider —— autofix 复验按家圈定，
+// 别家红不再拖垮本家的复验判定（0.1.38 当晚 zcode 就被 workbuddy 的红连坐回滚过）。
+const ONLY = new Set(
+  process.argv.slice(2).flatMap((a) => (a.startsWith("--provider=") ? [a.slice("--provider=".length)] : [])),
+)
+
 /** 每条规则: 文件名 + 一组「必须有 / 必须没有」的正则断言。 */
 const CHECKS = [
   {
@@ -47,19 +53,17 @@ const CHECKS = [
     pkg: "@magpie-community/opencode-workbuddy-auth",
     rules: [
       {
-        name: "国际版版本线 5.8.4（不与中国版 5.9.3 混用）",
-        ok: (t) => /5\.8\.4/.test(t),
-        fix: "workbuddy-ai 的 SITES 应为 app 5.8.4 / cli 2.161.0 / 空 runtime",
-      },
-      {
-        name: "按本机安装版本自适应 detectInstalledBuild()",
-        ok: (t) => /detectInstalledBuild/.test(t),
-        fix: "重新加回 detectInstalledBuild()（读 install-manifest.json + cli/package.json）",
-      },
-      {
-        name: "国际版不发 X-Agent-Runtime",
-        ok: (t) => /runtime:\s*""/.test(t) || /5\.8\.4[\s\S]{0,400}runtime:\s*""/.test(t),
-        fix: 'workbuddy-ai 的 runtime 应为 ""（5.8 客户端没有这个头）',
+        // 上游 0.2.3 起 intl 与 CN 是同一构建（update feed 实锤 5.9.3.42398134），
+        // 2026-10-30 用上游原值真打 www.workbuddy.ai 得 200 —— 旧的
+        // 「intl 必须 5.8.4 / 不发 runtime」版本线已被上游接手并超越；
+        // 本机 10-15 的 install-manifest（5.8.4）反而是过期证据，不再回退。
+        name: "国际版 SITES 自带 app/cli/runtime（上游 0.2.3：intl=5.9.3 同构建，实测 200）",
+        ok: (t) => {
+          const i = t.indexOf('"workbuddy-ai"')
+          const seg = i < 0 ? "" : t.slice(i, i + 700)
+          return /app:\s*"\d+\.\d+\.\d+"/.test(seg) && /cli:\s*"/.test(seg) && /runtime:\s*"/.test(seg)
+        },
+        fix: "workbuddy-ai 的 SITES 必须自带 app/cli/runtime 三个字段（上游 0.2.3 起 intl=5.9.3 同构建）",
       },
     ],
   },
@@ -111,6 +115,7 @@ let failed = 0
 const rows = []
 
 for (const c of CHECKS) {
+  if (ONLY.size && !ONLY.has(c.provider)) continue
   const files = readOne(c.pkg)
   if (!files.dirExists || files["index.mjs"] == null) {
     rows.push({ provider: c.provider, rule: "(插件目录/入口)", state: "SKIP", detail: `未安装: ${join(ROOT, c.pkg)}` })
@@ -206,6 +211,7 @@ const OURS = [
   },
 ]
 for (const c of OURS) {
+  if (ONLY.size && !ONLY.has("ours")) continue
   const s = readSrc(c.file)
   if (s == null) {
     rows.push({ provider: "ours", rule: c.file + ": " + c.name, state: "SKIP", detail: "缺少 " + join(REPO_SRC, c.file) })
