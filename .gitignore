@@ -21,3 +21,8 @@
 # 永不入库 —— 里面是账号、额度、时间戳，属敏感数据。
 # 用通配而不是逐个点名：插件以后再加一份 veyra-*.json 状态，同一条挡掉。
 /veyra-*.json
+
+# GitHub 渠道巡查的运行产物：报告每天新增一份、state.json 是增量基线，
+# 都是本机跑出来的，不入库。脚本与清单本体（tools/github-watch/*.mjs|json|md）照常入库。
+/tools/github-watch/reports/
+/tools/github-watch/state.json

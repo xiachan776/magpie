@@ -1,0 +1,60 @@
+{
+  "_comment": "巡查清单。providers[].aliases 命中仓库名/描述/topics 任意一处即归属该渠道；broad=true 的渠道会组成 OR 批量查询（省 API 配额），broad=false 的热词只靠主题扫描命中。themes[] 是主题扫描词，match 用于给候选打标。eco 是生态词，用于二次筛选与排序。",
+  "themes": [
+    { "label": "签到", "query": "签到", "pages": 3, "match": ["签到", "checkin", "check-in", "check in", "signin", "sign-in", "打卡"] },
+    { "label": "积分", "query": "积分", "pages": 3, "match": ["积分", "credits", "credit", "points"] },
+    { "label": "额度", "query": "额度", "pages": 3, "match": ["额度", "quota", "余额", "balance", "用量", "usage", "limit"] },
+    { "label": "请求头", "query": "请求头", "pages": 1, "match": ["请求头", "header", "headers", "user-agent", "useragent", "cookie", "fingerprint", "指纹"] },
+    { "label": "白嫖", "query": "白嫖", "pages": 2, "match": ["白嫖", "公益", "福利", "免费", "free", "中转", "relay", "proxy", "池", "pool"] },
+    { "label": "任务", "query": "任务", "pages": 1, "match": ["任务", "task", "tasks", "自动化", "automation"] },
+    { "label": "checkin", "query": "checkin", "pages": 1, "match": ["checkin", "check-in", "signin", "sign-in", "签到"] },
+    { "label": "credits", "query": "credits", "pages": 1, "match": ["credit", "credits", "quota", "积分"] }
+  ],
+  "eco": [
+    "白嫖", "公益", "福利", "免费", "中转", "relay", "proxy", "镜像", "池", "pool",
+    "多账号", "账号", "account", "oauth", "token", "配额", "额度", "积分", "签到", "请求头",
+    "dsh-plugin", "deepseek harness", "magpie", "opencode", "订阅", "subscription",
+    "供应商", "兼容", "compatible", "网关", "gateway", "登录", "扫码", "轮询", "容错",
+    "切换", "聚合", "导航", "价格", "pricing", "price", "余额", "用量", "消耗", "费用"
+  ],
+  "negative": [
+    "clash", "v2ray", "trojan", "shadowsocks", "ssr", "vpn", "proxypool",
+    "机场", "节点", "科学上网", "翻墙", "学习通", "超星", "免费节点", "订阅链接"
+  ],
+  "providers": [
+    { "label": "WorkBuddy", "aliases": ["workbuddy", "work buddy", "workbuddy-ai"], "broad": true },
+    { "label": "ZCode", "aliases": ["zcode"], "broad": true },
+    { "label": "Qoder", "aliases": ["qoder"], "broad": true },
+    { "label": "OpenCode Zen", "aliases": ["opencode zen", "opencode-zen", "opencode"], "broad": true },
+    { "label": "Our Free Model", "aliases": ["ourfreemodel", "our free model", "our-free-model"], "broad": true },
+    { "label": "CodeBuddy", "aliases": ["codebuddy", "code buddy"], "broad": true },
+    { "label": "LobsterAI", "aliases": ["lobsterai", "lobster ai"], "broad": true },
+    { "label": "CodeArts", "aliases": ["codearts", "huawei codearts"], "broad": true },
+    { "label": "Loomy", "aliases": ["loomy"], "broad": true },
+    { "label": "Trae", "aliases": ["trae"], "broad": true },
+    { "label": "MiniMax Code", "aliases": ["minimax code", "minimax-code", "minimax"], "broad": true },
+    { "label": "小浣熊", "aliases": ["小浣熊", "xiaohuanxiong", "sensenova", "raccoon"], "broad": true },
+    { "label": "AutoClaw", "aliases": ["autoclaw", "auto claw"], "broad": true },
+    { "label": "QwenWork", "aliases": ["qwenwork", "qwen work", "qwen-code"], "broad": true },
+    { "label": "JoyCode", "aliases": ["joycode", "joy code"], "broad": true },
+    { "label": "Command Code", "aliases": ["commandcode", "command code"], "broad": true },
+    { "label": "Search1API", "aliases": ["search1api", "search1"], "broad": true },
+    { "label": "额度管家", "aliases": ["额度管家", "quota manager"], "broad": true },
+    { "label": "Intelligence Check", "aliases": ["intelligence check", "intelligence-check"], "broad": true },
+    { "label": "Kiro", "aliases": ["kiro"], "broad": true },
+    { "label": "Cline", "aliases": ["cline"], "broad": true },
+    { "label": "Xiaomi MiMo", "aliases": ["xiaomi mimo", "mimo"], "broad": true },
+    { "label": "Nous Portal", "aliases": ["nous portal", "nousresearch", "nous research"], "broad": true },
+    { "label": "Open Design", "aliases": ["opendesign", "open design"], "broad": true },
+
+    { "label": "Cursor", "aliases": ["cursor"], "broad": false },
+    { "label": "Zed", "aliases": ["zed"], "broad": false },
+    { "label": "Grok", "aliases": ["grok"], "broad": false },
+    { "label": "Factory", "aliases": ["factory ai", "factory.ai", "droid"], "broad": false },
+    { "label": "Kimi Work", "aliases": ["kimi work", "kimi-work", "kimi"], "broad": false },
+    { "label": "Devin (Dev)", "aliases": ["devin"], "broad": false },
+    { "label": "GCP AI", "aliases": ["vertex ai", "gcp ai", "google cloud ai"], "broad": false },
+    { "label": "Cloudflare Workers AI", "aliases": ["workers ai", "cloudflare workers"], "broad": false },
+    { "label": "CHH·AN", "aliases": ["chh-an", "chh·an"], "broad": false }
+  ]
+}
