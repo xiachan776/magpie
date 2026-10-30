@@ -24,7 +24,7 @@
 | 11 | qwenwork | gateway.qwenwork.cn | 无账号 | 复用 qoder 头族 | — |
 | 12 | qwenwork-enterprise | gateway.qwenwork.cn | 无账号 | 复用 qoder 头族 | — |
 | 13 | raccoon | xiaohuanxiong.com | 无账号 | 版本/设备 ID 改为磁盘读（update-install-attempt.json / app-update.yml / desktop-device-identity.json），拿不到就省略头 | 🔧 已修（10-30） |
-| 14 | opencode-zen-free | opencode.ai/inference/v1 | 无 200（5 次 5 败） | 伪装 OpenCode 客户端（设计如此） | ⚠️ UA 可能过期 |
+| 14 | opencode-zen-free | opencode.ai/inference/v1 | 10-23 五次 **200**；10-28/29 九次 **404**（legacy 路径）；10-30 实测 **429 FreeUsageLimitError** | 伪装 OpenCode 客户端（`opencode/latest/2.0.25/cli` + `Bearer public` + `x-opencode-client: cli`，设计如此） | ⚠️ 免费额度按 IP/设备共享池，非账号额度；模型仍在目录 |
 | 15 | our-free-model | 本地 console | 无 200（4 次 4 败） | headers 透传（本地代理） | ⚠️ 本地 console 未起 |
 | 16 | lobsterai | 有道龙虾 api | 无账号 | X-LobsterAI-Client-* | ✅ header-guard 已 enforce |
 | 17 | loomy | 讯飞 loomy | 无账号 | token / Bearer 双套 | ✅ header-guard 已 enforce |
@@ -64,7 +64,7 @@
 
 ## 设计上特殊、不要按「一致」去改
 
-- **opencode-zen-free**：Zen 免费层**只认 OpenCode 客户端**（UA 不对直接 429 `FreeUsageLimitError`），所以它必须伪装成 OpenCode、带 `x-opencode-*`。要修的是「UA 是否当前 OpenCode 2.2.x」，不是「改成不像 OpenCode」。
+- **opencode-zen-free**：Zen 免费层**只认 OpenCode 客户端**（UA 不对直接 429 `FreeUsageLimitError`），所以它必须伪装成 OpenCode、带 `x-opencode-*`。要修的是「UA 是否当前 OpenCode 2.2.x」，不是「改成不像 OpenCode」。**2026-10-30 实测结论**：模型 `deepseek-v4.1-flash-free` 仍在 models.opencode.ai 目录里；三路（/inference/v1 两个模型 + /zen/v1）全部返回同一个 429 `FreeUsageLimitError`，说明免费额度是**按 IP/设备共享的池子、不是按账号**——用户本人没聊过天，但这台机器的出口 IP 已经把额度用掉了（10-23 本机五次 200 就在扣同一池）。重置是滚动窗口，不是 UTC 0 点（今天 08:00 后仍是 429）。
 - **codearts**：`Authorization: SDK-HMAC-SHA256 …`，签名含 host/date/body，**每次现算，不能覆盖**，header-guard 对它只做 audit。
 - **our-free-model**：本地 console 代理，头透传给本地服务，问题在 console 没起（4 次全败），不是指纹。
 - **api-chhlink-xyz-1244**：用户自建渠道，不是插件，头是 magpie 直接透传，没法按供应商对齐。
