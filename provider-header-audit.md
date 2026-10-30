@@ -80,3 +80,32 @@
 2. 取证 raccoon 真实客户端版本，改 `X-Client-Version`。
 3. 核对 codebuddy CN 1.106.1 / zcode 3.16.3 / cline 3.0.68 / trae 3.3.65 是否当前版本（有本机安装包就能读）。
 4. zen-free：把 UA 提到当前 OpenCode 版本，解 5 连败。
+
+---
+
+## 参考实现对比（2026-10-30 GitHub 巡查：17 首次发现 + 30 有更新 里与请求头/插件直接相关的）
+
+| 仓库 | 它做了什么 | 我们的对应 | 结论 |
+| --- | --- | --- | --- |
+| [yreidev/workbuddy2api-panel](https://github.com/yreidev/workbuddy2api-panel) | 请求头逐项对齐官方桌面端、国内/国际双域合池、HTTPDNS 主备切换 | workbuddy(5.9.3)/workbuddy-ai(5.8.4) 已分线，detectInstalledBuild 自适应 | 头已覆盖；HTTPDNS 主备未做（当前不需要） |
+| [FastTLS/fastls](https://github.com/FastTLS/fastls) | Go 库：可配 JA3/JA4 TLS 指纹 + 请求头顺序 + 浏览器 profile | 我们只对齐头值与 UA，**没管 TLS 指纹与头顺序** | 未覆盖。Node fetch 改不了 TLS，要换 undici Agent 或自建 https，属下一层 |
+| [FischelChern/sub2api-magpie-plugin](https://github.com/FischelChern/sub2api-magpie-plugin) | magpie provider 插件，Codex/Claude Agent 头兼容 + 多账号池 | 本仓同形态（codebuddy/lobsterai/loomy/codearts/zcode） | 结构一致，无新增可取 |
+| [techysy/CreditDaddy](https://github.com/techysy/CreditDaddy) | Qoder/WorkBuddy/ZCode 每日积分自动签到 + 10Router 查额度 | growth-center 七段流水线 + usage/credits + 健康度检测 | 已覆盖 |
+| [shuishuipingan/qoder2api-hub](https://github.com/shuishuipingan/qoder2api-hub) | COSY 签名 + 设备指纹 + OAuth 设备授权 | 已按真实 CLI 1.1.81 对齐 Cosy-*，Cosy-MachineCode 已补 | 已覆盖（我们是从本地 CLI bundle 取证，比它更权威） |
+| [zhlcba/dsh-raccoon-connect](https://github.com/zhlcba/dsh-raccoon-connect) | 小浣熊接 DSH；版本/设备 id 从磁盘读，拿不到就省略头 | raccoon profile 修复正是按这个口径做的 | 已采纳 |
+| [functy23/dsh-workbuddy-connect-functy](https://github.com/functy23/dsh-workbuddy-connect-functy)（已归档） | 简介明写「上游风控持续加强、UA/请求头格式频繁变动适配不下去」 | —— | **反面实证**：手工补丁必被冲掉，故已建 patch-check + 每日巡查 |
+
+### 本轮对比后修掉的一处真缺陷
+
+`src/header-guard.mjs` 的 `lobsterai` profile 原把 `x-lobsterai-client-capabilities` 写死 `"full"`，而插件真实值是 `kimi-k3-agentic-v1,thinking-level-control-v1`（`src/lobsterai.mjs` L44 `CAPABILITIES`）。一旦给 lobsterai 接上 `enforceHeaders`，就会把真实能力串覆盖成 `"full"`，直接废掉模型能力协商——典型「错的版本比没版本更糟」。
+
+已修：从 `required` 移除写死值，改到 `requiredPattern` 只做形态校验（逗号分隔能力 id）；并把这条写进 `tools/patch-check/check.mjs` 的 ours 断言，以后再写死就红灯。
+
+### 未接线的两处（诚实登记，不盲改）
+
+- `src/lobsterai.mjs`、`src/loomy.mjs` 目前**有 profile、没调用** header-guard。loomy profile 要求的 `loomy-version: 0.9.36`、`invokeorigin: user` 插件当前都不发，但**两家都没有可用账号可实测**，按「错的比没有更糟」不盲接 enforce，等有账号再切。
+- 已用 `check.mjs` ours 段锁住「profile 齐全 + 不写死危险值」，防的是回归，不是假装已接线。
+
+### 工具链在本次对比中立刻兑现的价值
+
+巡查跑完自动接补丁检查时当场发现：上游 zcode 已从 0.1.35 发到 **0.1.36**，magpie 更新检查器又把 `APP_VERSION 3.16.2` 与「UA 剥 ai-sdk 尾巴」两条补丁冲掉了（两条 FAIL）。`autofix.mjs` 就地重落并复验通过 → 复跑 `check.mjs` **PASS 15 / FAIL 0**。这就是这套工具存在的意义。

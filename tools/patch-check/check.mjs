@@ -142,6 +142,81 @@ for (const c of CHECKS) {
   }
 }
 
+
+// ---- 我们仓库自己的不变量（对比 2026-10-30 巡查情报后固化，防回归） ------------
+// 这一节检查本仓库 src/ 的源码，而不是本机 node_modules。
+// 把「对比巡查结果后确认正确」的取值固化成断言：以后谁改错，这里立刻红灯。
+import { dirname } from "node:path"
+import { fileURLToPath } from "node:url"
+const HERE = dirname(fileURLToPath(import.meta.url))
+const REPO_SRC =
+  process.env.VEYRA_REPO_SRC ||
+  [
+    join(HERE, "..", "..", "..", "magpie-veyra-plugins", "src"), // 本机布局：magpie-Veyra/tools/patch-check → 同级插件仓
+    join(HERE, "..", "..", "src"),                                // 若将来 tools 落在插件仓内
+  ].find((p) => existsSync(p)) ||
+  join(HERE, "..", "..", "..", "magpie-veyra-plugins", "src")
+const readSrc = (f) => {
+  const p = join(REPO_SRC, f)
+  return existsSync(p) ? readFileSync(p, "utf8") : null
+}
+const OURS = [
+  {
+    file: "header-guard.mjs",
+    name: "10 家供应商 profile 齐全",
+    ok: (s) =>
+      ["workbuddy", "workbuddy-ai", "codebuddy", "codebuddy-intl", "lobsterai", "loomy", "zcode", "codearts", "qoder-cn", "qoder"]
+        .every((k) => new RegExp('^\\s{2}"?' + k + '"?\\s*:\\s*\\{', "m").test(s)),
+    fix: "PROFILES 缺供应商：每个 provider 必须有一套独立头指纹，不能共享",
+  },
+  {
+    file: "header-guard.mjs",
+    name: 'lobsterai capabilities 不写死 "full"',
+    ok: (s) => !/"x-lobsterai-client-capabilities":\s*"full"/.test(s),
+    fix: '曾写死 "full"，而插件真实值是能力列表串，enforce 会覆盖坏；应改为形态校验',
+  },
+  {
+    file: "lobsterai.mjs",
+    name: "CAPABILITIES 是能力列表串（非 full）",
+    ok: (s) => /const CAPABILITIES = "[a-z0-9-]+(,[a-z0-9-]+)*"/.test(s),
+    fix: "CAPABILITIES 必须是逗号分隔的能力 id；写 full 之类的假值服务端不认",
+  },
+  {
+    file: "codebuddy.mjs",
+    name: "enforceHeaders 已接 sign 后 fetch 前",
+    ok: (s) =>
+      /import \{ enforceHeaders \} from "\.\/header-guard\.mjs"/.test(s) &&
+      /enforceHeaders\(site\.id, headers/.test(s),
+    fix: "codebuddy 必须在 sign() 后、fetch 前调 enforceHeaders(site.id, headers, {model})",
+  },
+  {
+    file: "codearts.mjs",
+    name: "codearts 只 audit 不 enforce（HMAC 头不可改）",
+    ok: (s) =>
+      /import \{ auditHeaders \}/.test(s) &&
+      /auditHeaders\("codearts"/.test(s) &&
+      !/\benforceHeaders\(/.test(s),
+    fix: "CodeArts 的 Authorization 是 SDK-HMAC-SHA256 每请求现签，只能 auditHeaders 不能 enforceHeaders",
+  },
+  {
+    file: "codebuddy.mjs",
+    name: "codebuddy-intl 端点 = www.codebuddy.ai",
+    ok: (s) => /id: "codebuddy-intl"[\s\S]{0,400}?endpoint: "https:\/\/www\.codebuddy\.ai"/.test(s),
+    fix: "国际版端点必须是 www.codebuddy.ai，写错会打到国内站",
+  },
+]
+for (const c of OURS) {
+  const s = readSrc(c.file)
+  if (s == null) {
+    rows.push({ provider: "ours", rule: c.file + ": " + c.name, state: "SKIP", detail: "缺少 " + join(REPO_SRC, c.file) })
+    continue
+  }
+  let pass = false
+  let err = ""
+  try { pass = c.ok(s) } catch (e) { err = String(e?.message ?? e) }
+  if (!pass) failed++
+  rows.push({ provider: "ours", rule: c.file + ": " + c.name, state: err ? "ERR" : pass ? "PASS" : "FAIL", detail: pass ? "" : c.fix })
+}
 const pad = (s, n) => String(s).padEnd(n)
 console.log(`\n插件补丁存活检查 — ${ROOT}\n`)
 console.log(pad("provider", 11) + pad("ver", 9) + pad("state", 7) + "rule")
