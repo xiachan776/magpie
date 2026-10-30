@@ -26,3 +26,5 @@
 # 都是本机跑出来的，不入库。脚本与清单本体（tools/github-watch/*.mjs|json|md）照常入库。
 /tools/github-watch/reports/
 /tools/github-watch/state.json
+
+/tools/github-watch/daily-state.json

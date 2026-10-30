@@ -34,6 +34,22 @@ const MAX_ITEMS = Number(arg('max-items', 25));
 const TOKEN_FILE = arg('token-file', null);
 const WITH_ECO = arg('no-ecosystem', false) === true ? false : true;
 const QUIET = arg('quiet', false) === true;
+// 每日一次 + 当天补跑：默认开启（--no-daily 关掉，--force 强制重跑）。
+// 现状：任务绑在 d7746aff 会话，那条 prompt 只写 --days 3，所以把 daily 做成默认行为，
+// 不用改 prompt 就能拿到「一天只跑一次、当天没跑就补跑一次」。
+const DAILY = arg('no-daily', false) === true ? false : true;
+const FORCE = arg('force', false) === true;
+const DAILY_STATE = path.join(HERE, 'daily-state.json');
+const todayCN = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(new Date());
+if (DAILY && !FORCE) {
+  let last = '';
+  try { last = JSON.parse(fs.readFileSync(DAILY_STATE, 'utf8')).lastRunDate || ''; } catch { /* 首次没有这个文件 */ }
+  if (last === todayCN()) {
+    console.log(`[daily] 今天（${last} · Asia/Shanghai）已经跑过了，跳过。要强制重跑：--force`);
+    process.exit(0);
+  }
+  if (last) console.log(`[daily] 上次是 ${last}，今天 ${todayCN()} 还没跑 → 现在补跑一次。`);
+}
 
 /* ---------------- token / pacing ---------------- */
 
@@ -412,4 +428,37 @@ if (QUIET) {
   }
   console.log(`\n报告: ${dated}`);
   console.log(`状态: ${STATE_PATH}`);
+}
+
+/* ---------------- daily 收尾：补丁存活检查 + 自动重落 ---------------- */
+
+if (DAILY) {
+  const { spawnSync } = await import('node:child_process');
+  const runTool = (file) => {
+    const r = spawnSync(process.execPath, [path.join(HERE, '..', 'patch-check', file)], { encoding: 'utf8' });
+    return { status: r.status, out: `${r.stdout || ''}${r.stderr || ''}`.trim() };
+  };
+  let post = '\n---\n\n## 补丁存活（自动检查 + 自动重落）\n\n';
+  const fix = runTool('autofix.mjs');
+  post += '```\n' + (fix.out || '(无输出)') + '\n```\n';
+  const chk = runTool('check.mjs');
+  post += '\n```\n' + (chk.out || '(无输出)') + '\n```\n';
+  for (const target of [dated, path.join(REPORT_DIR, 'latest.md')]) {
+    try { fs.appendFileSync(target, post, 'utf8'); } catch { /* 报告不存在就算了 */ }
+  }
+  console.log(post);
+  const patchOk = chk.status === 0 && fix.status !== 2;
+  try {
+    fs.writeFileSync(
+      DAILY_STATE,
+      JSON.stringify({ lastRunDate: todayCN(), at: new Date().toISOString(), patchOk }, null, 1),
+      'utf8',
+    );
+  } catch (e) {
+    console.error(`[daily] 写 daily-state.json 失败：${e?.message ?? e}`);
+  }
+  if (!patchOk) {
+    console.error('\n⚠️ 补丁存活未全绿（见上方 autofix / check 输出），需要人工处理。');
+    process.exitCode = 2;
+  }
 }
