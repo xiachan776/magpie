@@ -23560,6 +23560,10 @@ async function renderUpdate(r, u) {
   if (kept && !pageShown) kept.remove();
 }
 
+// pluginCheckinOpen keeps which plugins' per-account switches are unfolded
+// under the Plugins tab; a session's view, not a preference
+const pluginCheckinOpen = new Set();
+
 // renderPluginCheckins draws a Daily check-in row for each plugin's
 // provider that checks in itself (auth.checkin), under the Plugins tab.
 function renderPluginCheckins(s) {
@@ -23584,9 +23588,26 @@ function renderPluginCheckins(s) {
       }
     }));
     row.append(who, segBox);
-    // no card per account under the plugins' rows: one row per channel,
-    // whose sub already says what each account came to; an account
-    // switched off before is still skipped by the check-in itself
+    // the per-account Off/On switches stay folded behind a chevron at the
+    // row's end (#1902): one row per channel at rest, the switches one
+    // click away; an account switched off before is still skipped by the
+    // check-in itself
+    const by = "plugin:" + p.id;
+    const accts = checkinAccountRows(s, by);
+    if (accts.length) {
+      const open = pluginCheckinOpen.has(by);
+      const fold = el("button", "quota-acct-fold");
+      fold.type = "button";
+      fold.append(svg(CHEV, 11, 1.6));
+      fold.setAttribute("aria-expanded", String(open));
+      fold.title = t("{n} accounts", { n: accts.length });
+      fold.onclick = () => {
+        if (open) pluginCheckinOpen.delete(by); else pluginCheckinOpen.add(by);
+        renderPluginCheckins(state.settings || prefs);
+      };
+      row.append(fold);
+      if (open) return [row, ...accts];
+    }
     return row;
   }).flat());
 }
