@@ -124,3 +124,16 @@
 | zcode-claim 槽位 | [9,13,20,21] | **[9,11,13,15,17,19,21]**（活动随机投放，10 分钟轮询口径） | TraeSign TraeCheckinApp.cs:130-186 |
 
 **待办/风险**：①6004 模型级限流未实现（429+code 6004 应进 (uid,model) 冷却表，不是凭证级 5min——rate-guard 待改）；②Client Request Signing V4（Ed25519+PoW）未实现，遇 401 VERIFY_SIGNATURE_INVALID 即此因（参考 CPA plugins/zcode/src/proxy/crypto.ts）；③**8 个 veyra-buddy CN 账号 refresh 全死**（12153 invalid_grant: Session doesn't have required client，access 无 exp 非 JWT，chat 401 APISIX 边缘）——账号需重登才能验证新头形；④codebuddy-intl 账号封禁（11140）未解。
+
+## 巡查吸收（2026-10-31，survey-20261031 批次）
+
+今天 09:05 巡查（首次发现 66 · 有更新 102）筛出 6 仓克隆取证（`_ref/survey-20261031/`），四项吸收全部落地并实测：
+
+| # | 吸收项 | 来源 | 落点 | 验证 |
+|---|---|---|---|---|
+| 1 | zcode 领取面加 `GET /api/v1/marketing/touch` 补充活动源 + 版本下限 ≥3.16.3（`claimPlaneVersion`） | dsh-zcode-startplan 0.6.0（3.16.3 反编译实证：1024 类活动只在 marketing/touch，preview 恒空；低版本 deliveries 恒空） | `src/zcode.mjs`（repo+live），preview 主源、投放补充 campaignId、失败降级 | 实测 2 账号 marketing/touch 200 `{"code":0,"data":{"deliveries":[]}}`，版本按 3.16.3 查 |
+| 2 | workbuddy chat 补 b3 链路头族（`b3: traceId-spanId-1` + X-B3-TraceId/SpanId/Sampled，逐请求 32/16-hex 现生成） | 9router #4946（350-flow 抓包）+ DoublexQAQ/dsh-workbuddy 双源 | 社区插件 0.2.6 `chatHeaders()`，CN+INTL 都发 | 实测 CN 200 / INTL 200（震刘号），头在位、UA 不变 |
+| 3 | zen-free 放行可选 Zen API key（`requirePublic` 接受任意非空 key，loader/catalog 用 `auth.key`） | x5427876/dsh-opencode-free（匿名共享池 429 时的逃生门） | 社区插件 0.1.18 `provider.mjs` | node --check；默认入口仍 "public"，粘贴自己的 Zen key 即可脱离 IP 共享池 |
+| 4 | patch-check 扩 3 规则（workbuddy b3 / zen-free key / zcode marketing）+ readOne 支持多文件插件（c.file） | 本轮新断言 | `tools/patch-check/check.mjs` | 全量 PASS 17 · FAIL 0 |
+
+**记录不动的**：dsh-workbuddy 的 x-device-token（CN 专属、与账号绑定，我们登录流没有此 token，加了反而假）；其 CN UA `CodeBuddyIDE/4.12.0` 单段与 CPA 双段 4.9.7 冲突（CPA 117★ 生产抓包优先，保持我方值）；TriDefender/zcode-api（514★，Signing V4/token 映射）未克隆——Signing V4 仍是未实现风险项，参考 CPA `plugins/zcode/src/proxy/crypto.ts`；uoox/magpie-workbuddy-tasks（自称国际版签到+每日活跃）两次克隆失败（权限拒绝），「workbuddy-ai 有签到」与 channels.mjs NONE 结论的矛盾待该仓可读后再核；Qoder CLAIM_BENEFIT（100 Credits/天，aipunch batch-3）仍未接——社区 qoder 插件无 claim，候选下一轮。

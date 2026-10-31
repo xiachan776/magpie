@@ -65,6 +65,11 @@ const CHECKS = [
         },
         fix: "workbuddy-ai 的 SITES 必须自带 app/cli/runtime 三个字段（上游 0.2.3 起 intl=5.9.3 同构建）",
       },
+      {
+        name: "chat 带 b3 链路头族（9router #4946 + dsh-workbuddy 双源，实测 200）",
+        ok: (t) => /headers\.set\("b3", `\$\{b3Trace\}-\$\{b3Span\}-1`\)/.test(t) && /X-B3-TraceId/.test(t) && /X-B3-Sampled/.test(t),
+        fix: "chatHeaders 必须带 b3/X-B3-*（真实客户端 OpenTelemetry 埋点，逐请求现生成）",
+      },
     ],
   },
   {
@@ -99,12 +104,24 @@ const CHECKS = [
       },
     ],
   },
+  {
+    provider: "zen-free",
+    pkg: "@magpie-community/opencode-zen-free-auth",
+    file: "provider.mjs",
+    rules: [
+      {
+        name: "可选 Zen API key（共享匿名池 429 时的逃生门）",
+        ok: (t) => /apiKey: auth\.key/.test(t) && /!auth\.key/.test(t) && -1 === t.indexOf('apiKey: "public"'),
+        fix: "requirePublic 放行任意非空 key，loader/catalog 用 auth.key 而非硬编码 public（dsh-opencode-free 同款）",
+      },
+    ],
+  },
 ]
 
-function readOne(pkg) {
+function readOne(pkg, wanted = "index.mjs") {
   const dir = join(ROOT, pkg)
   const files = { "index.mjs": null, "package.json": null, dirExists: existsSync(dir) }
-  for (const f of ["index.mjs", "package.json"]) {
+  for (const f of [wanted, "package.json"]) {
     const p = join(dir, f)
     if (existsSync(p)) files[f] = readFileSync(p, "utf8")
   }
@@ -116,8 +133,9 @@ const rows = []
 
 for (const c of CHECKS) {
   if (ONLY.size && !ONLY.has(c.provider)) continue
-  const files = readOne(c.pkg)
-  if (!files.dirExists || files["index.mjs"] == null) {
+  const wanted = c.file ?? "index.mjs"
+  const files = readOne(c.pkg, wanted)
+  if (!files.dirExists || files[wanted] == null) {
     rows.push({ provider: c.provider, rule: "(插件目录/入口)", state: "SKIP", detail: `未安装: ${join(ROOT, c.pkg)}` })
     continue
   }
@@ -132,7 +150,7 @@ for (const c of CHECKS) {
     let pass = false
     let err = ""
     try {
-      pass = r.ok(files["index.mjs"])
+      pass = r.ok(files[wanted])
     } catch (e) {
       err = String(e?.message ?? e)
     }
@@ -223,6 +241,16 @@ const OURS = [
     name: "codebuddy-intl 端点 = www.codebuddy.ai",
     ok: (s) => /id: "codebuddy-intl"[\s\S]{0,400}?endpoint: "https:\/\/www\.codebuddy\.ai"/.test(s),
     fix: "国际版端点必须是 www.codebuddy.ai，写错会打到国内站",
+  },
+  {
+    file: "zcode.mjs",
+    name: "zcode 领取面 = preview 主源 + marketing/touch 补充源（版本下限 3.16.3）",
+    ok: (s) =>
+      /ZCODE_MARKETING_TOUCH_URL = `\$\{ZCODE_ORIGIN\}\/api\/v1\/marketing\/touch`/.test(s) &&
+      /ZCODE_VERSION_GATED_MIN = "3\.16\.3"/.test(s) &&
+      /claimPlaneVersion\(/.test(s) &&
+      /mergePlansWithMarketing\(/.test(s),
+    fix: "1024 类活动只在 marketing/touch 出现；领取面版本必须 ≥3.16.3（dsh-zcode-startplan 0.6.0 实证）",
   },
 ]
 for (const c of OURS) {
