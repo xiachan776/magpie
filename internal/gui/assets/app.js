@@ -22560,7 +22560,10 @@ function renderPluginCheckins(s) {
       }
     }));
     row.append(who, segBox);
-    return [row, ...checkinAccountRows(s, "plugin:" + p.id)];
+    // no card per account under the plugins' rows: one row per channel,
+    // whose sub already says what each account came to; an account
+    // switched off before is still skipped by the check-in itself
+    return row;
   }).flat());
 }
 
