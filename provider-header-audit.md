@@ -137,3 +137,7 @@
 | 4 | patch-check 扩 3 规则（workbuddy b3 / zen-free key / zcode marketing）+ readOne 支持多文件插件（c.file） | 本轮新断言 | `tools/patch-check/check.mjs` | 全量 PASS 17 · FAIL 0 |
 
 **记录不动的**：dsh-workbuddy 的 x-device-token（CN 专属、与账号绑定，我们登录流没有此 token，加了反而假）；其 CN UA `CodeBuddyIDE/4.12.0` 单段与 CPA 双段 4.9.7 冲突（CPA 117★ 生产抓包优先，保持我方值）；TriDefender/zcode-api（514★，Signing V4/token 映射）未克隆——Signing V4 仍是未实现风险项，参考 CPA `plugins/zcode/src/proxy/crypto.ts`；uoox/magpie-workbuddy-tasks（自称国际版签到+每日活跃）两次克隆失败（权限拒绝），「workbuddy-ai 有签到」与 channels.mjs NONE 结论的矛盾待该仓可读后再核；Qoder CLAIM_BENEFIT（100 Credits/天，aipunch batch-3）仍未接——社区 qoder 插件无 claim，候选下一轮。
+
+### 追加（2026-10-31 11:00）：workbuddy-ai 国际版签到接入
+
+修正本报告此前的「国际站后端根本没有签到接口」结论——status 接口实测 200（`POST www.workbuddy.ai/billing/meter/checkin-activity-status`，`daily_credit:100`），只是活动开关 `active:false` 时没得签。workbuddy-ai 已从 `CHECKIN.NONE` 转 `NATIVE`（commit 90fdd1c），同一套 checkin 流程按账号域分流：CN 用 CodeBuddyIDE/1.106.1，INTL 用 `WorkBuddy/5.9.3 workbuddy-ai/5.9.3 CLI/2.165.0`。实测 CN 6 号 already checked in、国际版正确 no-op「活动未开启」。仍记录未接：uoox/magpie-workbuddy-tasks 的国际版「每日活跃会话」（开云端 agent 会话说 Hi 领官方每日 30/50 积分包，ACP 轮询+10 名额槽位管理，工程量大，列为候选）；ai-checkin 的 Qoder campaigns 端点（`openapi.qoder.com.cn/sash/api/v1/me/campaigns`，先列活动再领，每日 10:00 UTC+8 刷新）。
