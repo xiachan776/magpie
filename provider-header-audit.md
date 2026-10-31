@@ -109,3 +109,18 @@
 ### 工具链在本次对比中立刻兑现的价值
 
 巡查跑完自动接补丁检查时当场发现：上游 zcode 已从 0.1.35 发到 **0.1.36**，magpie 更新检查器又把 `APP_VERSION 3.16.2` 与「UA 剥 ai-sdk 尾巴」两条补丁冲掉了（两条 FAIL）。`autofix.mjs` 就地重落并复验通过 → 复跑 `check.mjs` **PASS 15 / FAIL 0**。这就是这套工具存在的意义。
+
+## CPA PROTOCOL 吸收（2026-10-31，mmqz/cpa-multi-plugins 抓包规格）
+
+| 项 | 旧值 | 新值 | 依据 |
+|---|---|---|---|
+| codebuddy CN UA | `CodeBuddyIDE/1.106.1` | `CodeBuddyIDE/4.9.7 CodeBuddy/4.9.7` | CPA docs/PROTOCOL.md L58-63 |
+| codebuddy CN X-IDE-Type / X-Product | CodeBuddy / CodeBuddy | **CodeBuddyIDE** / **SaaS** | 同上 |
+| codebuddy CN X-Domain | copilot.tencent.com | **账号注册域优先**（a.domain → site.apiDomain），guard 改形态校验 `/^(www\.codebuddy\.cn\|copilot\.tencent\.com)$/` | 401 教训：域要与账号会话绑定一致 |
+| codebuddy-intl UA/头 | 1.106.1 / CodeBuddy / CodeBuddy | `CodeBuddy/1.100.0` / IDE / **cloud** + `X-Product-Version: 1.100.0`（无 X-Requested-With） | CPA L83-88 |
+| /v3/config UA | 同 chat | `CodeBuddyIDE/4.12.0 CodeBuddy/4.12.0` + `X-CodeBuddy-Request: 1` | CPA：config 端点 UA 敏感 |
+| zcode UA 尾巴 | 剥掉（错误判定） | **回滚保留 ` ai-sdk/anthropic/3.0.81`**（LLM 面真实客户端指纹） | CPA L331-332 + 上游插件双证 |
+| zcode trace | 缺 x-query-id | 补齐（五件套） | CPA |
+| zcode-claim 槽位 | [9,13,20,21] | **[9,11,13,15,17,19,21]**（活动随机投放，10 分钟轮询口径） | TraeSign TraeCheckinApp.cs:130-186 |
+
+**待办/风险**：①6004 模型级限流未实现（429+code 6004 应进 (uid,model) 冷却表，不是凭证级 5min——rate-guard 待改）；②Client Request Signing V4（Ed25519+PoW）未实现，遇 401 VERIFY_SIGNATURE_INVALID 即此因（参考 CPA plugins/zcode/src/proxy/crypto.ts）；③**8 个 veyra-buddy CN 账号 refresh 全死**（12153 invalid_grant: Session doesn't have required client，access 无 exp 非 JWT，chat 401 APISIX 边缘）——账号需重登才能验证新头形；④codebuddy-intl 账号封禁（11140）未解。

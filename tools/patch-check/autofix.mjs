@@ -33,7 +33,6 @@ const SAFE_EDITS = [
     pkg: "@magpie-community/opencode-zcode-auth",
     edits: [
       { name: "APP_VERSION → 3.16.2", re: /const APP_VERSION = "\d+\.\d+\.\d+"/, to: 'const APP_VERSION = "3.16.2"' },
-      { name: "UA 剥 ai-sdk 尾巴", re: /out\.set\("User-Agent",\s*UA\s*\+\s*"[^"]*"\)/, to: 'out.set("User-Agent", UA)' },
     ],
   },
   {

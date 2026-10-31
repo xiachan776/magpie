@@ -42,9 +42,9 @@ const CHECKS = [
         fix: '把 const APP_VERSION 改回 "3.16.2"（本机注册表/官网/updater 全是 3.16.2）',
       },
       {
-        name: "UA 不带 ai-sdk 代理栈尾巴",
-        ok: (t) => !/out\.set\(\s*"User-Agent"\s*,\s*UA\s*\+\s*" ai-sdk/.test(t),
-        fix: '把 out.set("User-Agent", UA + " ai-sdk/anthropic/…") 改成 out.set("User-Agent", UA)',
+        name: "UA 带 ai-sdk/anthropic LLM 指纹尾巴（CPA 实锤，剥掉反而假）",
+        ok: (t) => /out\.set\(\s*"User-Agent"\s*,\s*UA\s*\+\s*" ai-sdk\/anthropic\/3\.0\.81"\)/.test(t),
+        fix: "chat fetch 的 UA 必须是 UA + \x27 ai-sdk/anthropic/3.0.81\x27（真实客户端 LLM 面指纹）",
       },
     ],
   },
@@ -193,6 +193,21 @@ const OURS = [
       /import \{ enforceHeaders \} from "\.\/header-guard\.mjs"/.test(s) &&
       /enforceHeaders\(site\.id, headers/.test(s),
     fix: "codebuddy 必须在 sign() 后、fetch 前调 enforceHeaders(site.id, headers, {model})",
+  },
+  {
+    file: "codebuddy.mjs",
+    name: "CPA PROTOCOL 头规格（2026-10-30 抓包）",
+    ok: (s) =>
+      /const UA_CN = "CodeBuddyIDE\/4\.9\.7 CodeBuddy\/4\.9\.7"/.test(s) &&
+      /const UA_INTL = "CodeBuddy\/1\.100\.0"/.test(s) &&
+      /ideType: "CodeBuddyIDE"/.test(s) &&
+      /ideType: "IDE"/.test(s) &&
+      /product: "SaaS"/.test(s) &&
+      /product: "cloud"/.test(s) &&
+      /productVersion: "1\.100\.0"/.test(s) &&
+      /X-Product-Version", site\.productVersion/.test(s) &&
+      /apiDomain: "www\.codebuddy\.cn"/.test(s),
+    fix: "CN: UA 双段 4.9.7/ideType CodeBuddyIDE/product SaaS/X-Domain codebuddy.cn；INTL: CodeBuddy/1.100.0/IDE/cloud/+Product-Version；/v3/config 用 4.12.0 UA+X-CodeBuddy-Request: 1",
   },
   {
     file: "codearts.mjs",
