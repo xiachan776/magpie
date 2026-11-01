@@ -141,3 +141,16 @@
 ### 追加（2026-10-31 11:00）：workbuddy-ai 国际版签到接入
 
 修正本报告此前的「国际站后端根本没有签到接口」结论——status 接口实测 200（`POST www.workbuddy.ai/billing/meter/checkin-activity-status`，`daily_credit:100`），只是活动开关 `active:false` 时没得签。workbuddy-ai 已从 `CHECKIN.NONE` 转 `NATIVE`（commit 90fdd1c），同一套 checkin 流程按账号域分流：CN 用 CodeBuddyIDE/1.106.1，INTL 用 `WorkBuddy/5.9.3 workbuddy-ai/5.9.3 CLI/2.165.0`。实测 CN 6 号 already checked in、国际版正确 no-op「活动未开启」。仍记录未接：uoox/magpie-workbuddy-tasks 的国际版「每日活跃会话」（开云端 agent 会话说 Hi 领官方每日 30/50 积分包，ACP 轮询+10 名额槽位管理，工程量大，列为候选）；ai-checkin 的 Qoder campaigns 端点（`openapi.qoder.com.cn/sash/api/v1/me/campaigns`，先列活动再领，每日 10:00 UTC+8 刷新）。
+
+## 补丁重打（2026-11-01，上游更新冲掉补丁）
+
+上游当日 08:35 发版（workbuddy **0.2.9**、qoder **0.2.51**），09:10 巡查尾部自动补丁检查当场抓到 **FAIL 4**：workbuddy chat 缺 b3 链路头族；qoder COSY_VERSION≠1.1.81、缺 Cosy-MachineCode、Cosy-ClientType≠"5"。`autofix.mjs` 只做字符串级安全替换且「本家全绿才落盘」——qoder 仅修版本号后复验仍 2 红，整份回滚（备份 `*.bak-autofix-20261101T0114xx`），按设计转人工：
+
+| 项 | 重打内容 | 依据 |
+|---|---|---|
+| workbuddy 0.2.9 chatHeaders | 末尾补 b3 族：`b3: {trace32hex}-{span16hex}-1` + X-B3-TraceId/X-B3-SpanId/X-B3-Sampled=1，逐请求现生成（复用插件内 `hex()`/`randomBytes`） | 10-31 吸收项 #2（9router #4946 + dsh-workbuddy 双源） |
+| qoder 0.2.51 COSY_VERSION | "1.1.69" → **"1.1.81"** | qoder-cn-header-fix.md 实测差异表 |
+| qoder chatHeaders | identity 回填列表加 **Cosy-MachineCode**；`Cosy-ClientType = "5"`；delete Business-Product/Business-Type/Data-Policy/Scene/Login-Version；return 去掉 X-Model-Key/X-Model-Source | 同上（chat 面按 CLI 1.1.81 形） |
+| qoder campaignMachine | 可选读 `identity.machineCode`（≤4096 且可打印 ASCII 才加头，缺字段不抛错）——防旧 runtime-info 无此字段打崩整个 identity | 防御性收敛，官方客户端缺设备身份时同样不发此头 |
+
+备份 `*.bak-manual-20261101T092156`；`node --check` 两文件干净；`check.mjs` **PASS 17 · FAIL 0**；magpie 重启生效（7228→32552，6.7s）。这轮验证了闭环：巡查扫尾 → 补丁检查报警 → autofix 安全网 → 人工补齐 → 全绿才收工。
