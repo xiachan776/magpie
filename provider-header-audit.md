@@ -154,3 +154,29 @@
 | qoder campaignMachine | 可选读 `identity.machineCode`（≤4096 且可打印 ASCII 才加头，缺字段不抛错）——防旧 runtime-info 无此字段打崩整个 identity | 防御性收敛，官方客户端缺设备身份时同样不发此头 |
 
 备份 `*.bak-manual-20261101T092156`；`node --check` 两文件干净；`check.mjs` **PASS 17 · FAIL 0**；magpie 重启生效（7228→32552，6.7s）。这轮验证了闭环：巡查扫尾 → 补丁检查报警 → autofix 安全网 → 人工补齐 → 全绿才收工。
+
+## 补丁重打（2026-11-02，上游更新冲掉补丁）
+
+上游当日发版（workbuddy **0.2.10**、qoder **0.2.52**、zen-free **0.1.21**），09:06 巡查尾部自动补丁检查当场抓到 **PASS 12 · FAIL 5**，转人工重打（备份 `*.bak-20261102-20261102T090819`），最终 **PASS 17 · FAIL 0**：
+
+| 项 | 重打内容 | 依据 |
+|---|---|---|
+| qoder COSY_VERSION | "1.1.69" → **"1.1.81"** | qoder-cn-header-fix.md 实测 1.1.81 |
+| qoder chatHeaders | identity 回填加 **Cosy-MachineCode**；`Cosy-ClientType="5"`（CLI）；delete Business-Product/Business-Type/Data-Policy/Scene/Login-Version；return 去 X-Model-Key/X-Model-Source | 真实 CLI 1.1.81 不发桌面端信封字段 |
+| qoder campaignMachine | identity 循环后补可选 machineCode（≤4096 且可打印 ASCII 才加，缺字段不抛错，防旧 runtime-info 打崩 identity） | umid.machineCode 口径 |
+| zen-free provider.mjs | requirePublic 放行任意非空 key（`auth?.type!=="api" || !auth.key` 才拒）；loader `apiKey: auth.key` 取代硬编码 "public" | 共享匿名池 429 逃生门 |
+| workbuddy chatHeaders | 末尾补 b3 族（`b3`=trace32-span16-1 + X-B3-TraceId/SpanId/Sampled=1，逐请求现生成，复用插件 `hex()`/`randomBytes`） | 9router #4946 + dsh-workbuddy 双源 |
+
+## 差异取证与吸收判定（2026-11-02）
+
+`_ref/survey-20261102/` 克隆成功 2 仓、失败 1 仓（首次发现里星高/四轴命中）：
+
+- **L0NE-6/WorkBuddy-Daily**（481★，19 文件）：`workbuddy_daily.py` 245KB。核心事实——成长中心 `growth/streak` 与热力图只认 `/v2/report` 的 `chat_request_send` 事件（签到接口只推进签到连签），每天补发一条幂等；`derive_id(uid,salt)=sha256(f"{salt}:{uid}").hexdigest()[:36]`；桌面信封字段 timezone/ideName/ideType/ideVersion 5.9.3/mode CLOUD/userAgent WORKBUDDY_UA_CN/os Win32/product SaaS/**qimei36**/extName workbuddy-desktop/cpuModel/cpuCores 8/memorySize 16/**releaseDate 1793093056315**/**commit d4692421…**。
+- **HRuiCcc/RuiC-freebuddy**（16★，76 文件）：`automations.mjs` 不造调度器，改写入官方 `workbuddy.db` 的 `automations` 表（ACTIVE|PAUSED），复用官方常驻 LocalAutomationScheduler（任务体=prompt+模型+技能，到点官方起真实会话执行）。
+- **misakano7545/workbuddy2api-panel**（762★）：克隆失败（`.git/config` Permission denied，多次重试无效），未能取证。
+
+**吸收判定**：`/v2/report`+`chat_request_send` 活跃上报能力**本仓 `src/growth-assist.mjs`（516 行）早已实现**（移植同源 workbuddy-plus，默认关闭，plugin option `completeTasks:true` 才跑），derive 口径一致（`sha256("machine:"+uid)`/`sha256("session:"+uid)` [:36]）→ **本轮 0 项代码吸收（无可吸收增量）**。
+
+**待实测字段差异（记录不盲改）**：WorkBuddy-Daily 信封比本仓 `chatEventChain` 多 `qimei36`/`os`/`arch`/`osVersion`/`releaseDate`/`commit`，且 `ideVersion` 用 5.9.3（本仓 5.5.6）。无实测证据证明这些字段影响计分，标注「未实测」不落码，留待真机对照。
+
+**未采纳**：①RuiC 官方 automations 表注入——思路优（借官方引擎、反风控面小），但需读加密 `workbuddy.db` + 依赖官方调度器，工程量与侵入性大，列为「待议候选」；②misakano7545 自动任务中心——克隆取证失败，未验证不盲改。
