@@ -180,3 +180,26 @@
 **待实测字段差异（记录不盲改）**：WorkBuddy-Daily 信封比本仓 `chatEventChain` 多 `qimei36`/`os`/`arch`/`osVersion`/`releaseDate`/`commit`，且 `ideVersion` 用 5.9.3（本仓 5.5.6）。无实测证据证明这些字段影响计分，标注「未实测」不落码，留待真机对照。
 
 **未采纳**：①RuiC 官方 automations 表注入——思路优（借官方引擎、反风控面小），但需读加密 `workbuddy.db` + 依赖官方调度器，工程量与侵入性大，列为「待议候选」；②misakano7545 自动任务中心——克隆取证失败，未验证不盲改。
+
+## 补丁重打（2026-11-03，上游连环发版冲掉 6 条补丁）
+
+上游当日连环发版（workbuddy **0.2.20**、qoder **0.2.59**、zen-free **0.1.24**、raccoon **0.1.6**），21:04 巡查尾部自动补丁检查 **PASS 11 · FAIL 6**，转人工重打（备份 `*.bak-manual-20261103-210621`），最终 **PASS 17 · FAIL 0**：
+
+| 项 | 重打内容 | 依据 |
+|---|---|---|
+| qoder COSY_VERSION | "1.1.69" → **"1.1.81"** | qoder-cn-header-fix.md 实测 1.1.81 |
+| qoder chatHeaders | identity 回填列表加 **Cosy-MachineCode**；`h["Cosy-ClientType"]="5"`（CLI）；delete Cosy-Business-Product/Business-Type/Data-Policy/Cosy-Scene/Login-Version；return 去 X-Model-Key/X-Model-Source | 真实 CLI 1.1.81 不发桌面端信封字段 |
+| qoder campaignMachine | identity 循环后补可选 machineCode（≤4096 且可打印 ASCII 才加，缺字段不抛错，防旧 runtime-info 打崩 identity） | umid.machineCode 口径 |
+| workbuddy chatHeaders | 末尾补 b3 族（`b3`=trace32-span16-1 + X-B3-TraceId/SpanId/Sampled=1，逐请求现生成，复用插件 `hex()`/`randomBytes`） | 9router #4946 + dsh-workbuddy 双源 |
+| zen-free provider.mjs | requirePublic 放行任意非空 key（`!auth.key` 才拒）；loader `apiKey: auth.key` 取代硬编码 "public" | 共享匿名池 429 逃生门 |
+| raccoon index.mjs | `desktopHeaders()` 从硬编码 `v1.0.0` 改为磁盘读：`raccoonDesktopVersion()` 读 `%APPDATA%\office-raccoon\update-install-attempt.json`(version/appVersion/targetVersion, 正则 `\d+\.\d+\.\d+`) → fallback 扫 `%LOCALAPPDATA%\Programs\*raccoon*\resources\app-update.yml`；`raccoonDeviceId()` 读 `desktop-device-identity.json` 的 clientDeviceId；拿不到就省略该头（dsh-raccoon-connect 口径：错的版本比缺头更扎眼） | 原补丁规格见本文件 L53 |
+
+## 差异取证与吸收判定（2026-11-03）
+
+`_ref/survey-20261103/` 克隆 2 仓：
+- **xmgzxmgz/workbuddy-checkin-qinglong**（24★）：青龙面板版 WorkBuddy 签到（`/v2/billing/meter`）+ 宠物探险（`/activity/growth/buddy/travel/status|config|depart|claim`）。核对本仓 `magpie-veyra-plugins/src/growth-center.mjs` 四端点全覆盖（L301 status / L316 claim / L541 config / L553 depart，含 daily_limit_reached 与重派）→ **无增量**。
+- **MYCF711/magpie-workbuddy**（0★，同为本机 magpie 插件工程，318+173 测试）：双区供应商包。其 `src/workbuddy/bonus.mjs`（4945B）实现**限时补偿积分**——本仓缺。端点（webBase，无 /v2 前缀）：`POST /billing/meter/compensation-status`（GET 状态，解析 envelope.data）；`POST /billing/meter/claim-compensation`（领取，无 body，成功看 code 不看 data）；鉴权由调用方注入。
+
+**吸收判定**：**本轮 0 项落码吸收**。`/v2/report` 活跃上报本仓 `src/growth-assist.mjs` 已覆盖（续 11-02 结论）；旅行/签到本仓 `growth-center.mjs`/`workbuddy-checkin.mjs` 已覆盖。**新增待实测吸收候选 1 项**——限时补偿端点（compensation-status/claim-compensation，见上）情报已完整（端点/无 body/成功判据 code），但本机无可用 WorkBuddy token 实测是否真能领到 → 按「能实测必须实测、不能实测标未实测不盲改」口径，**不落码**，列候选下轮真机验证后再决定是否加 `claimCompensation()` + check 规则。
+
+**未采纳**：无（今日两个克隆仓均无超出本仓能力且可落码的项）。
